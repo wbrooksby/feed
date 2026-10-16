@@ -28,10 +28,16 @@ UA = "Mozilla/5.0 (personal news reader; +https://github.com)"
 TRACKING = re.compile(r"^(utm_|ref$|reflink$|st$|source$)")
 
 
-def get(url):
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=25) as r:
-        return r.read()
+def get(url, tries=3):
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*"})
+    for n in range(tries):
+        try:
+            with urllib.request.urlopen(req, timeout=25) as r:
+                return r.read()
+        except Exception:
+            if n == tries - 1:
+                raise
+            time.sleep(3 * (n + 1))
 
 
 def clean_url(url):
@@ -138,7 +144,11 @@ def fetch_tldr(feed):
     raw = get(feed["url"])
     issues = list(parse_feed(raw))[:TLDR_ISSUES]
     for issue in issues:
-        page = get(issue["link"]).decode("utf-8", "replace")
+        try:
+            page = get(issue["link"]).decode("utf-8", "replace")
+        except Exception as ex:  # an issue page can 404 briefly while it's being published
+            print(f"  ! skipped {issue['link']}: {ex}", file=sys.stderr)
+            continue
         for m in re.finditer(r'<a class="font-bold" href="([^"]+)"[^>]*><h3>(.*?)</h3></a>', page, re.S):
             url, title = html.unescape(m.group(1)), text(m.group(2))
             if "(Sponsor)" in title or "tldr.tech" in url:
