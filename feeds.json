@@ -1,0 +1,41 @@
+{
+  "_help": "cat: tech | ai | db | world | econ | essays.  type: rss (default) | tldr (splits each issue into articles).  discover: true marks a source you're still trying out; the app mixes these into 'For you' so you can find new stuff.  max: newest N items per fetch.  linkFallback: used when a feed item has no link ({title} is replaced).",
+  "feeds": [
+    {"id": "tldr-tech",   "name": "TLDR",               "cat": "tech",   "type": "tldr", "url": "https://tldr.tech/api/rss/tech"},
+    {"id": "hn",          "name": "Hacker News",        "cat": "tech",   "url": "https://hnrss.org/best", "max": 30},
+    {"id": "gh-trending", "name": "GitHub Trending",    "cat": "tech",   "url": "https://mshibanami.github.io/GitHubTrendingRSS/daily/all.xml", "max": 15},
+    {"id": "hn-show",     "name": "Show HN",            "cat": "tech",   "url": "https://hnrss.org/show?points=100", "max": 15, "discover": true},
+    {"id": "lobsters",    "name": "Lobsters",           "cat": "tech",   "url": "https://lobste.rs/rss", "discover": true},
+
+    {"id": "tldr-ai",     "name": "TLDR AI",            "cat": "ai",     "type": "tldr", "url": "https://tldr.tech/api/rss/ai"},
+    {"id": "simonw",      "name": "Simon Willison",     "cat": "ai",     "url": "https://simonwillison.net/atom/entries/"},
+    {"id": "importai",    "name": "Import AI",          "cat": "ai",     "url": "https://importai.substack.com/feed"},
+    {"id": "latent",      "name": "Latent Space",       "cat": "ai",     "url": "https://www.latent.space/feed"},
+
+    {"id": "tldr-data",   "name": "TLDR Data",          "cat": "db",     "type": "tldr", "url": "https://tldr.tech/api/rss/data"},
+    {"id": "lobsters-db", "name": "Lobsters · databases","cat": "db",    "url": "https://lobste.rs/t/databases.rss"},
+    {"id": "pgweekly",    "name": "Postgres Weekly",    "cat": "db",     "url": "https://postgresweekly.com/rss"},
+
+    {"id": "warfronts",   "name": "Warfronts",          "cat": "world",  "url": "https://feeds.megaphone.fm/warfronts", "max": 10, "kind": "podcast",
+       "linkFallback": "https://www.youtube.com/results?search_query=Warfronts+{title}"},
+    {"id": "tangle",      "name": "Tangle",             "cat": "world",  "url": "https://www.readtangle.com/rss/"},
+    {"id": "semafor",     "name": "Semafor",            "cat": "world",  "url": "https://www.semafor.com/rss.xml", "max": 25},
+    {"id": "econ-leaders","name": "The Economist",      "cat": "world",  "url": "https://www.economist.com/leaders/rss.xml", "max": 10},
+    {"id": "wotr",        "name": "War on the Rocks",   "cat": "world",  "url": "https://warontherocks.com/feed/", "max": 10, "discover": true},
+    {"id": "slowboring",  "name": "Slow Boring",        "cat": "world",  "url": "https://www.slowboring.com/feed", "discover": true},
+
+    {"id": "freakonomics","name": "Freakonomics Radio", "cat": "econ",   "url": "https://freakonomics.com/series/freakonomics-radio/feed/", "kind": "podcast"},
+    {"id": "noahpinion",  "name": "Noahpinion",         "cat": "econ",   "url": "https://www.noahpinion.blog/feed"},
+    {"id": "margrev",     "name": "Marginal Revolution","cat": "econ",   "url": "https://marginalrevolution.com/feed"},
+    {"id": "econ-fin",    "name": "The Economist · Finance & economics", "cat": "econ", "url": "https://www.economist.com/finance-and-economics/rss.xml", "max": 10},
+
+    {"id": "aldaily",     "name": "Arts & Letters Daily","cat": "essays", "url": "https://www.aldaily.com/feed/", "max": 10},
+    {"id": "aeon",        "name": "Aeon",               "cat": "essays", "url": "https://aeon.co/feed.rss"},
+    {"id": "atlantic",    "name": "The Atlantic · Ideas","cat": "essays", "url": "https://www.theatlantic.com/feed/channel/ideas/"},
+    {"id": "longreads",   "name": "Longreads",          "cat": "essays", "url": "https://longreads.com/feed/", "discover": true},
+    {"id": "conphys",     "name": "Construction Physics","cat": "essays", "url": "https://www.construction-physics.com/feed", "discover": true},
+    {"id": "exphist",     "name": "Experimental History","cat": "essays", "url": "https://www.experimental-history.com/feed", "discover": true},
+    {"id": "acx",         "name": "Astral Codex Ten",   "cat": "essays", "url": "https://www.astralcodexten.com/feed", "discover": true},
+    {"id": "jvns",        "name": "Julia Evans",        "cat": "tech",   "url": "https://jvns.ca/atom.xml", "discover": true}
+  ]
+}

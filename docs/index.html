@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Feed</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Feed">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f7f5f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<style>
+:root {
+  --bg: #f7f5f0; --surface: #ffffff; --ink: #1c1d20; --muted: #6b6d73; --faint: #a3a5ab;
+  --line: #e6e3dc; --accent: #c2410c; --like: #15803d; --dislike: #b91c1c; --chip: #ecE9e2;
+  --header: rgba(247,245,240,.86);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a; --surface: #1e1f23; --ink: #ececea; --muted: #9a9ca3; --faint: #64666d;
+    --line: #2a2b30; --accent: #fb923c; --like: #4ade80; --dislike: #f87171; --chip: #26272c;
+    --header: rgba(22,23,26,.86);
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+a { color: inherit; }
+
+header { position: sticky; top: 0; z-index: 5; background: var(--header);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px); backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top); }
+.bar { display: flex; align-items: center; gap: 8px; max-width: 720px; margin: 0 auto; padding: 10px 16px 4px; }
+.bar h1 { font: 700 22px/1.2 ui-serif, "New York", Georgia, serif; margin: 0; flex: 1; letter-spacing: -.01em; }
+.bar .updated { color: var(--faint); font-size: 12px; }
+.icon-btn { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--muted); }
+.icon-btn:active { background: var(--chip); }
+.icon-btn svg { width: 20px; height: 20px; }
+nav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; max-width: 720px; margin: 0 auto; padding: 6px 16px 10px; }
+nav::-webkit-scrollbar { display: none; }
+nav button { flex: none; padding: 6px 12px; border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 14px; font-weight: 500; }
+nav button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+main { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+ol { list-style: none; margin: 0; padding: 0; }
+li.item { display: flex; gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+li.item.read .title { color: var(--muted); }
+li.item.gone { opacity: 0; transform: translateX(-12px); transition: opacity .2s, transform .2s; }
+.body { flex: 1; min-width: 0; }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+.meta .src { font-weight: 600; color: var(--muted); }
+.meta .tag { color: var(--accent); font-weight: 600; }
+.meta a { color: var(--faint); text-decoration: none; }
+.title { display: block; font: 600 17px/1.3 ui-serif, "New York", Georgia, serif; text-decoration: none; overflow-wrap: anywhere; }
+.sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.votes { display: flex; flex-direction: column; gap: 2px; flex: none; }
+.vote { width: 38px; height: 34px; border-radius: 9px; display: grid; place-items: center; color: var(--faint); }
+.vote svg { width: 18px; height: 18px; }
+.vote:active { background: var(--chip); }
+.vote.up[aria-pressed="true"] { color: var(--like); }
+.vote.down[aria-pressed="true"] { color: var(--dislike); }
+
+.empty, .more { text-align: center; color: var(--muted); padding: 32px 0; }
+.more button { padding: 10px 18px; border-radius: 999px; background: var(--chip); font-weight: 500; }
+
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 12px; display: none; gap: 14px; align-items: center;
+  font-size: 14px; box-shadow: 0 6px 24px rgba(0,0,0,.18); z-index: 20; max-width: calc(100% - 32px); }
+.toast.show { display: flex; }
+.toast button { color: var(--accent); font-weight: 600; }
+
+dialog { border: 0; padding: 0; width: min(720px, 100%); max-width: 100%; max-height: 100%; height: 100%; margin: 0 auto;
+  background: var(--bg); color: var(--ink); }
+dialog::backdrop { background: rgba(0,0,0,.3); }
+.sheet { padding: calc(10px + env(safe-area-inset-top)) 16px calc(32px + env(safe-area-inset-bottom)); }
+.sheet h2 { font: 700 20px ui-serif, "New York", Georgia, serif; margin: 22px 0 8px; }
+.sheet h2:first-of-type { margin-top: 6px; }
+.sheet p { color: var(--muted); margin: 0 0 10px; font-size: 14px; }
+.row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.row .name { flex: 1; min-width: 0; }
+.row .name small { display: block; color: var(--muted); font-size: 12px; }
+.row .score { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.switch { width: 46px; height: 28px; border-radius: 999px; background: var(--line); position: relative; flex: none; transition: background .15s; }
+.switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.switch[aria-checked="true"] { background: var(--like); }
+.switch[aria-checked="true"]::after { transform: translateX(18px); }
+.words { display: flex; flex-wrap: wrap; gap: 6px; }
+.words span { padding: 4px 10px; border-radius: 999px; background: var(--chip); font-size: 13px; }
+.words .pos { color: var(--like); } .words .neg { color: var(--dislike); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.actions button, .actions label { padding: 10px 14px; border-radius: 10px; background: var(--chip); font-weight: 500; font-size: 14px; cursor: pointer; }
+.close { position: sticky; top: 0; display: flex; justify-content: flex-end; }
+.close button { font-weight: 600; color: var(--accent); padding: 8px 0; }
+dialog :focus:not(:focus-visible) { outline: none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>Feed</h1>
+    <span class="updated" id="updated"></span>
+    <button class="icon-btn" id="refresh" aria-label="Refresh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+    </button>
+    <button class="icon-btn" id="open-settings" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+    </button>
+  </div>
+  <nav id="tabs"></nav>
+</header>
+<main>
+  <ol id="list"></ol>
+  <div class="more" id="more" hidden><button>Show more</button></div>
+  <div class="empty" id="empty" hidden></div>
+</main>
+<div class="toast" id="toast"><span id="toast-msg"></span><button id="toast-undo">Undo</button></div>
+
+<dialog id="settings">
+  <div class="sheet">
+    <div class="close"><button id="close-settings">Done</button></div>
+    <h2>Your taste</h2>
+    <p>Words that show up in titles you've liked or disliked. They move similar articles up or down.</p>
+    <div class="words" id="words"></div>
+    <h2>Sources</h2>
+    <p>The number is how much a source is boosted by your votes. Turn a source off to hide it. Sources marked “trying out” are mixed into For you to help you find new things.</p>
+    <div id="sources"></div>
+    <h2>Backup</h2>
+    <p>Your likes are saved on this device only. Export them to keep a copy or move them to another device.</p>
+    <div class="actions">
+      <button id="export">Export likes</button>
+      <label>Import<input type="file" id="import" accept="application/json" hidden></label>
+      <button id="reset-read">Show read items again</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+const STORE = "feed.v1";
+const PAGE = 40;
+const DISCOVER_EVERY = 5; // every 5th For-you slot goes to something new
+const TABS = [
+  ["foryou", "For you"], ["tech", "Tech"], ["ai", "AI"], ["db", "Data"],
+  ["world", "World"], ["econ", "Economics"], ["essays", "Essays"], ["liked", "Liked"],
+];
+const STOP = new Set(("the a an and or but of to in on for with at by from as is are was were be been it its this that these those " +
+  "how why what who when where which your you our their his her they we i my me not no new more most can will just about into " +
+  "over after than then out up has have had do does did vs via get gets got make makes made one two first now also says said " +
+  "show hn ask may could would should all any some").split(" "));
+
+let data = { items: [], sources: [], updated: 0 };
+let state = load();
+let tab = "foryou";
+let shown = PAGE;
+let undo = null;
+
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE));
+    if (s && s.votes) return { muted: [], read: {}, ...s };
+  } catch {}
+  return { votes: {}, read: {}, muted: [] };
+}
+function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} }
+
+const tokens = (title) => [...new Set(title.toLowerCase().replace(/[’']/g, "").split(/[^a-z0-9+#.]+/)
+  .map(w => w.replace(/^\.+|\.+$/g, "")).filter(w => w.length > 2 && !STOP.has(w) && !/^\d+$/.test(w)))];
+
+// ---- preference model: tallies of likes/dislikes per source, category and title word ----
+function model() {
+  const tally = () => ({});
+  const m = { src: tally(), cat: tally(), tok: tally() };
+  const add = (bucket, key, v) => {
+    const t = bucket[key] || (bucket[key] = { up: 0, down: 0 });
+    v > 0 ? t.up++ : t.down++;
+  };
+  for (const v of Object.values(state.votes)) {
+    add(m.src, v.src, v.v); add(m.cat, v.cat, v.v);
+    for (const w of v.toks) add(m.tok, w, v.v);
+  }
+  return m;
+}
+const weight = (t, prior = 2) => t ? (t.up - t.down) / (t.up + t.down + prior) : 0;
+
+function score(item, m, now) {
+  const ageH = Math.max(0, now - item.t) / 3600;
+  let s = 1.2 * Math.exp(-ageH / 48);
+  s += 0.9 * weight(m.src[item.src]);
+  s += 0.4 * weight(m.cat[item.cat]);
+  let w = 0;
+  for (const t of tokens(item.title)) w += weight(m.tok[t], 3);
+  s += 0.7 * Math.tanh(w);
+  if (item.points) s += 0.25 * Math.min(1, Math.log10(item.points) / 3);
+  return s;
+}
+
+function isNewToYou(item, m, srcInfo) {
+  const t = m.src[item.src];
+  const votes = t ? t.up + t.down : 0;
+  return (srcInfo[item.src]?.discover || votes < 3) && weight(t) >= 0;
+}
+
+function visibleItems() {
+  const muted = new Set(state.muted);
+  return data.items.filter(i => !muted.has(i.src) && state.votes[i.id]?.v !== -1);
+}
+
+function ranked() {
+  const m = model(), now = Date.now() / 1000;
+  const srcInfo = Object.fromEntries(data.sources.map(s => [s.id, s]));
+  let items = visibleItems();
+
+  if (tab === "liked") {
+    return Object.values(state.votes).filter(v => v.v === 1).sort((a, b) => b.at - a.at)
+      .map(v => ({ ...v, id: v.id, t: v.t, liked: true }));
+  }
+  if (tab !== "foryou") {
+    return items.filter(i => i.cat === tab).sort((a, b) =>
+      (!!state.read[a.id] - !!state.read[b.id]) || score(b, m, now) - score(a, m, now));
+  }
+
+  // For you: unread items, best first, without one source taking over,
+  // with every DISCOVER_EVERY-th slot given to a source you haven't voted on much.
+  items = items.filter(i => !state.read[i.id]).map(i => ({ i, s: score(i, m, now) }));
+  items.sort((a, b) => b.s - a.s);
+  const discover = items.filter(x => isNewToYou(x.i, m, srcInfo))
+    .sort((a, b) => b.i.t - a.i.t);
+  const out = [], used = new Set(), perSrc = {};
+  const take = (x, tag) => { used.add(x.i.id); perSrc[x.i.src] = (perSrc[x.i.src] || 0) + 1; out.push(tag ? { ...x.i, tag } : x.i); };
+  while (out.length < items.length) {
+    if ((out.length + 1) % DISCOVER_EVERY === 0) {
+      const d = discover.find(x => !used.has(x.i.id) && (perSrc[x.i.src] || 0) < 2);
+      if (d) { take(d, "New to you"); continue; }
+    }
+    let best = null, bestS = -Infinity;
+    for (const x of items) {
+      if (used.has(x.i.id)) continue;
+      const s = x.s - 0.18 * (perSrc[x.i.src] || 0);
+      if (s > bestS) { best = x; bestS = s; }
+      if (x.s < bestS - 2) break;
+    }
+    if (!best) break;
+    take(best);
+  }
+  return out;
+}
+
+// ---- rendering ----
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function ago(t) {
+  const m = Math.round((Date.now() / 1000 - t) / 60);
+  if (m < 60) return `${Math.max(1, m)}m`;
+  if (m < 60 * 24) return `${Math.round(m / 60)}h`;
+  return `${Math.round(m / 1440)}d`;
+}
+const UP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v11H3V10z"/><path d="M7 10l4-8a3 3 0 0 1 3 3v4h5.5a2 2 0 0 1 2 2.3l-1.4 8A2 2 0 0 1 18.1 21H7"/></svg>';
+const DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V3h4v11z"/><path d="M17 14l-4 8a3 3 0 0 1-3-3v-4H4.5a2 2 0 0 1-2-2.3l1.4-8A2 2 0 0 1 5.9 3H17"/></svg>';
+
+function render() {
+  $("tabs").innerHTML = TABS.map(([k, label]) =>
+    `<button data-tab="${k}" aria-pressed="${k === tab}">${label}</button>`).join("");
+  const names = Object.fromEntries(data.sources.map(s => [s.id, s.name]));
+  const all = ranked();
+  const list = all.slice(0, shown);
+  $("list").innerHTML = list.map(i => {
+    const v = state.votes[i.id]?.v || 0;
+    const bits = [`<span class="src">${esc(names[i.src] || i.src)}</span>`];
+    if (i.tag) bits.unshift(`<span class="tag">${i.tag}</span>`);
+    if (i.t) bits.push(`<span>${ago(i.t)}</span>`);
+    if (i.mins) bits.push(`<span>${i.mins} min</span>`);
+    if (i.kind === "podcast") bits.push(`<span>episode</span>`);
+    if (i.points) bits.push(`<span>${i.points} pts</span>`);
+    if (i.discuss) bits.push(`<a href="${esc(i.discuss)}" target="_blank" rel="noopener" data-read="${i.id}">comments</a>`);
+    return `<li class="item${state.read[i.id] && tab !== "liked" ? " read" : ""}" data-id="${i.id}">
+      <div class="body">
+        <div class="meta">${bits.join("")}</div>
+        <a class="title" href="${esc(i.url)}" target="_blank" rel="noopener" data-read="${i.id}">${esc(i.title)}</a>
+        ${i.sub ? `<div class="sub">${esc(i.sub)}</div>` : ""}
+      </div>
+      <div class="votes">
+        <button class="vote up" data-vote="1" aria-label="Like" aria-pressed="${v === 1}">${UP}</button>
+        <button class="vote down" data-vote="-1" aria-label="Dislike" aria-pressed="${v === -1}">${DOWN}</button>
+      </div>
+    </li>`;
+  }).join("");
+  $("more").hidden = all.length <= shown;
+  $("empty").hidden = list.length > 0;
+  $("empty").textContent = !data.items.length ? "Loading…" :
+    tab === "liked" ? "Articles you like will be saved here." : "You're all caught up.";
+  $("updated").textContent = data.updated ? `updated ${ago(data.updated)} ago` : "";
+}
+
+function findItem(id) {
+  return data.items.find(i => i.id === id) || state.votes[id];
+}
+
+function vote(id, v) {
+  const item = findItem(id);
+  if (!item) return;
+  const prev = state.votes[id] ? { ...state.votes[id] } : null;
+  if (prev?.v === v) delete state.votes[id];
+  else state.votes[id] = {
+    v, id, at: Date.now(), src: item.src, cat: item.cat, toks: tokens(item.title),
+    title: item.title, url: item.url, t: item.t, sub: item.sub, kind: item.kind,
+  };
+  save();
+  if (v === -1 && prev?.v !== -1) {
+    const li = document.querySelector(`li[data-id="${id}"]`);
+    li?.classList.add("gone");
+    toast("Hidden. You'll see less like this.", () => {
+      prev ? (state.votes[id] = prev) : delete state.votes[id];
+      save(); render();
+    });
+    setTimeout(render, 200);
+  } else {
+    render();
+  }
+}
+
+function toast(msg, onUndo) {
+  $("toast-msg").textContent = msg;
+  $("toast").classList.add("show");
+  undo = onUndo;
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { $("toast").classList.remove("show"); undo = null; }, 4000);
+}
+
+// ---- settings ----
+function renderSettings() {
+  const m = model();
+  const words = Object.entries(m.tok).filter(([, t]) => t.up + t.down >= 2)
+    .map(([w, t]) => [w, weight(t, 3)]).filter(([, s]) => Math.abs(s) >= 0.2)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 30);
+  $("words").innerHTML = words.length ? words.map(([w, s]) =>
+    `<span class="${s > 0 ? "pos" : "neg"}">${s > 0 ? "+" : "−"} ${esc(w)}</span>`).join("") :
+    `<p>Nothing yet. Like or dislike a few articles.</p>`;
+  const counts = {};
+  for (const i of data.items) counts[i.src] = (counts[i.src] || 0) + 1;
+  $("sources").innerHTML = data.sources.map(s => {
+    const t = m.src[s.id], on = !state.muted.includes(s.id);
+    const w = weight(t);
+    const label = TABS.find(([k]) => k === s.cat)?.[1] || s.cat;
+    return `<div class="row">
+      <div class="name">${esc(s.name)}<small>${label}${s.discover ? " · trying out" : ""} · ${counts[s.id] || 0} items${t ? ` · ${t.up} liked, ${t.down} disliked` : ""}</small></div>
+      <span class="score">${t ? (w > 0 ? "+" : "") + w.toFixed(2) : ""}</span>
+      <button class="switch" role="switch" aria-checked="${on}" aria-label="Show ${esc(s.name)}" data-src="${s.id}"></button>
+    </div>`;
+  }).join("");
+}
+
+// ---- data ----
+async function refresh() {
+  try {
+    const r = await fetch("items.json?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    data = await r.json();
+    try { localStorage.setItem(STORE + ".items", JSON.stringify(data)); } catch {}
+    // forget read marks for items that have aged out
+    const ids = new Set(data.items.map(i => i.id));
+    for (const id of Object.keys(state.read)) if (!ids.has(id)) delete state.read[id];
+    save();
+  } catch (e) {
+    if (!data.items.length) {
+      try { data = JSON.parse(localStorage.getItem(STORE + ".items")) || data; } catch {}
+    }
+    toast("Couldn't refresh. Showing the last saved copy.");
+  }
+  render();
+}
+
+// ---- events ----
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-tab],[data-vote],[data-read],[data-src]");
+  if (!t) return;
+  if (t.dataset.tab) { tab = t.dataset.tab; shown = PAGE; render(); scrollTo(0, 0); }
+  else if (t.dataset.vote) vote(t.closest("li").dataset.id, +t.dataset.vote);
+  else if (t.dataset.read) { state.read[t.dataset.read] = Date.now(); save(); setTimeout(render, 300); }
+  else if (t.dataset.src) {
+    const id = t.dataset.src;
+    state.muted = state.muted.includes(id) ? state.muted.filter(x => x !== id) : [...state.muted, id];
+    save(); renderSettings(); render();
+  }
+});
+$("more").onclick = () => { shown += PAGE; render(); };
+$("refresh").onclick = refresh;
+$("toast-undo").onclick = () => { undo?.(); $("toast").classList.remove("show"); undo = null; };
+$("open-settings").onclick = () => { renderSettings(); $("settings").showModal(); };
+$("close-settings").onclick = () => $("settings").close();
+$("reset-read").onclick = () => { state.read = {}; save(); render(); toast("Read items are back in the list."); };
+$("export").onclick = async () => {
+  const blob = new Blob([JSON.stringify({ votes: state.votes, muted: state.muted }, null, 1)], { type: "application/json" });
+  const file = new File([blob], `feed-likes-${new Date().toISOString().slice(0, 10)}.json`, { type: "application/json" });
+  if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file] }); return; } catch {} }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
+};
+$("import").onchange = async (e) => {
+  try {
+    const s = JSON.parse(await e.target.files[0].text());
+    state.votes = { ...state.votes, ...(s.votes || {}) };
+    state.muted = [...new Set([...state.muted, ...(s.muted || [])])];
+    save(); renderSettings(); render(); toast("Likes imported.");
+  } catch { toast("That file couldn't be read."); }
+};
+let lastLoad = Date.now();
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && Date.now() - lastLoad > 20 * 60e3) { lastLoad = Date.now(); refresh(); }
+});
+
+try { const c = JSON.parse(localStorage.getItem(STORE + ".items")); if (c) data = c; } catch {}
+render();
+refresh();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
