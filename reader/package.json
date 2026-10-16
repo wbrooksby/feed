@@ -1,0 +1,8 @@
+{
+  "name": "feed-reader",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "wrangler dev", "deploy": "wrangler deploy" },
+  "dependencies": { "@mozilla/readability": "^0.6.0", "linkedom": "^0.18.12" },
+  "devDependencies": { "wrangler": "^4.40.0" }
+}
