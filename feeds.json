@@ -9,7 +9,7 @@
 
     {"id": "tldr-ai",     "name": "TLDR AI",            "cat": "ai",     "type": "tldr", "url": "https://tldr.tech/api/rss/ai"},
     {"id": "simonw",      "name": "Simon Willison",     "cat": "ai",     "url": "https://simonwillison.net/atom/entries/"},
-    {"id": "importai",    "name": "Import AI",          "cat": "ai",     "url": "https://importai.substack.com/feed"},
+    {"id": "importai",    "name": "Import AI",          "cat": "ai",     "url": "https://jack-clark.net/feed/"},
     {"id": "latent",      "name": "Latent Space",       "cat": "ai",     "url": "https://www.latent.space/feed"},
 
     {"id": "tldr-data",   "name": "TLDR Data",          "cat": "db",     "type": "tldr", "url": "https://tldr.tech/api/rss/data"},
