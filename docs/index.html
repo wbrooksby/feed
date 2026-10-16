@@ -194,8 +194,8 @@ article.r .byline { color: var(--muted); font-size: 14px; margin-bottom: 22px; }
 const STORE = "feed.v1";
 const PAGE = 40;
 const DISCOVER_EVERY = 5; // every 5th For-you slot goes to something new
-const READER_API = ""; // set to the deployed Cloudflare worker URL; empty = always open the original
-const NO_READER = new Set(["econ-leaders", "econ-fin", "warfronts"]); // paywalled, or not text
+const READER_API = "https://feed-reader.wbrooksby.workers.dev/"; // Cloudflare worker in reader/; empty = always open the original
+const NO_READER = new Set(["econ-leaders", "econ-fin", "warfronts", "atlantic"]); // paywalled, or not text
 const TABS = [
   ["foryou", "For you"], ["tech", "Tech"], ["ai", "AI"], ["db", "Data"],
   ["world", "World"], ["econ", "Economics"], ["essays", "Essays"], ["liked", "Liked"],
