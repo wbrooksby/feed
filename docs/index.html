@@ -110,6 +110,11 @@ body.reading { overflow: hidden; }
   padding: calc(6px + env(safe-area-inset-top)) 16px 6px; background: var(--header);
   -webkit-backdrop-filter: saturate(1.4) blur(14px); backdrop-filter: saturate(1.4) blur(14px); }
 .rbar button, .rbar a { color: var(--accent); font-weight: 600; text-decoration: none; padding: 8px 0; font-size: 15px; }
+.rbar .right { display: flex; gap: 18px; align-items: center; }
+.rbar #reader-save { display: inline-flex; align-items: center; gap: 5px; }
+.rbar #reader-save[hidden] { display: none; }
+.rbar #reader-save svg { width: 16px; height: 16px; }
+.rbar #reader-save[aria-pressed="true"] svg { fill: currentColor; }
 .rbar .progress { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--accent); width: 0; }
 article.r { max-width: 640px; margin: 0 auto; padding: 18px 20px calc(48px + env(safe-area-inset-bottom)); }
 article.r .rmeta { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
@@ -163,7 +168,10 @@ article.r .byline { color: var(--muted); font-size: 14px; margin-bottom: 22px; }
 <section id="reader" aria-label="Article">
   <div class="rbar">
     <button id="reader-back">‹ Back</button>
-    <a id="reader-orig" target="_blank" rel="noopener">Original ↗</a>
+    <div class="right">
+      <button id="reader-save" aria-pressed="false" hidden></button>
+      <a id="reader-orig" target="_blank" rel="noopener">Original ↗</a>
+    </div>
     <div class="progress" id="reader-progress"></div>
   </div>
   <article class="r" id="reader-body"></article>
@@ -218,9 +226,9 @@ let undo = null;
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(STORE));
-    if (s && s.votes) return { muted: [], read: {}, hist: {}, ...s };
+    if (s && s.votes) return { muted: [], read: {}, hist: {}, saved: {}, ...s };
   } catch {}
-  return { votes: {}, read: {}, muted: [], hist: {} };
+  return { votes: {}, read: {}, muted: [], hist: {}, saved: {} };
 }
 function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch {} }
 
@@ -247,6 +255,7 @@ function touch(id) {
 }
 
 function implicitLabel(h) { // -> [label, weight] or null
+  if (h.saved) return [1, 0.6];
   if (h.open) {
     if (!h.reader || h.secs == null) return [1, 0.35];
     if (((h.depth || 0) >= 0.6 && h.secs >= 30) || h.secs >= 90) return [1, 0.8]; // read it
@@ -445,7 +454,11 @@ function ranked() {
   }
   // For you: unread articles (no repos or product pages), with every DISCOVER_EVERY-th
   // slot going to a source you haven't voted on much.
-  return arrange(items.filter(i => !state.read[i.id] && i.kind !== "repo"), M, now, DISCOVER_EVERY);
+  // Saved for later sits on top (newest save first) until you reach the end of the article.
+  const saved = Object.values(state.saved).sort((a, b) => b.at - a.at)
+    .map(sv => ({ ...(data.items.find(i => i.id === sv.item.id) || sv.item), tag: "Saved", progress: sv.pos }));
+  return [...saved, ...arrange(items.filter(i => !state.read[i.id] && i.kind !== "repo" && !state.saved[i.id]),
+    M, now, DISCOVER_EVERY)];
 }
 
 // ---- rendering ----
@@ -472,10 +485,11 @@ function render() {
     if (i.tag) bits.unshift(`<span class="tag">${i.tag}</span>`);
     if (i.t) bits.push(`<span>${ago(i.t)}</span>`);
     if (i.mins) bits.push(`<span>${i.mins} min</span>`);
+    if (i.progress >= 0.02) bits.push(`<span>${Math.round(100 * i.progress)}% read</span>`);
     if (i.points >= 20 || (i.points && i.src.startsWith("hn"))) bits.push(`<span>${i.points} pts</span>`);
     if (i.alsoIn) bits.push(`<span>also in ${esc(i.alsoIn.map(s => names[s] || s).join(", "))}</span>`);
     if (i.discuss) bits.push(`<a href="${esc(i.discuss)}" target="_blank" rel="noopener" data-read="${i.id}">comments</a>`);
-    return `<li class="item${state.read[i.id] && tab !== "liked" ? " read" : ""}" data-id="${i.id}">
+    return `<li class="item${state.read[i.id] && tab !== "liked" && i.tag !== "Saved" ? " read" : ""}" data-id="${i.id}">
       <div class="body">
         <div class="meta">${bits.join("")}</div>
         <a class="title" href="${esc(i.url)}" target="_blank" rel="noopener" data-read="${i.id}">${esc(i.title)}</a>
@@ -522,7 +536,7 @@ function watchImpressions() {
 const saveSoon = () => { clearTimeout(saveSoon.t); saveSoon.t = setTimeout(save, 1500); };
 
 function findItem(id) {
-  return data.items.find(i => i.id === id) || state.votes[id];
+  return data.items.find(i => i.id === id) || state.votes[id] || state.saved[id]?.item;
 }
 
 function vote(id, v) {
@@ -629,8 +643,9 @@ async function openReader(item) {
   const names = Object.fromEntries(data.sources.map(s => [s.id, s.name]));
   const box = $("reader-body");
   $("reader").dataset.id = item.id;
-  reading = { id: item.id, start: Date.now(), depth: 0 };
+  reading = { id: item.id, start: Date.now(), depth: 0, above: false, quietUntil: 0 };
   $("reader-orig").href = item.url;
+  $("reader-save").hidden = true;
   $("reader").classList.add("open");
   $("reader").scrollTop = 0;
   document.body.classList.add("reading");
@@ -654,11 +669,62 @@ async function openReader(item) {
     box.innerHTML = head(meta, item.title, a.byline) + `<div class="rbody">${a.html}</div>` + readerEnd(item);
     const r = $("reader");
     if (reading && r.scrollHeight <= r.clientHeight * 1.2) reading.depth = 1;
+    showSaveButton();
+    const sv = state.saved[item.id];
+    if (sv?.pos > 0) { // pick up where you left off
+      reading.quietUntil = Date.now() + 400; // don't treat our own jump as you scrolling
+      requestAnimationFrame(() => {
+        const body = box.querySelector(".rbody");
+        if (body && reading?.id === item.id) r.scrollTop = body.offsetTop + sv.pos * body.offsetHeight - 80;
+      });
+    }
   } catch (err) {
     if ($("reader").dataset.id !== item.id) return;
     box.innerHTML = head(names[item.src] || "", item.title) +
       `<div class="rstate">This one couldn't be shown here, usually because of a paywall.<br>
        <a href="${esc(item.url)}" target="_blank" rel="noopener">Open the original</a></div>`;
+  }
+}
+
+// ---- save for later ----
+// Saved articles sit at the top of For you and reopen where you stopped,
+// until you scroll to the end of the article, which turns the save off again.
+const BOOKMARK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>';
+function showSaveButton() {
+  const id = $("reader").dataset.id, on = !!state.saved[id];
+  const b = $("reader-save");
+  b.hidden = false;
+  b.setAttribute("aria-pressed", on);
+  b.innerHTML = `${BOOKMARK}${on ? "Saved" : "Save for later"}`;
+}
+function articlePos() { // how far through the article text the top of the screen is, 0..1
+  const body = $("reader-body").querySelector(".rbody");
+  if (!body) return 0;
+  return Math.max(0, Math.min(1, ($("reader").scrollTop + 80 - body.offsetTop) / body.offsetHeight));
+}
+$("reader-save").onclick = () => {
+  const id = $("reader").dataset.id, item = findItem(id);
+  if (!item) return;
+  if (state.saved[id]) delete state.saved[id];
+  else {
+    const keep = ["id", "src", "cat", "title", "url", "t", "d", "points", "discuss", "mins", "sub"];
+    state.saved[id] = { at: Date.now(), pos: articlePos(), item: Object.fromEntries(keep.filter(k => item[k] != null).map(k => [k, item[k]])) };
+    const h = touch(id);
+    if (h) { h.saved = true; invalidate(); }
+  }
+  save(); showSaveButton();
+};
+function trackSaved() {
+  const id = reading?.id, sv = id && state.saved[id];
+  const body = $("reader-body").querySelector(".rbody");
+  if (!sv || !body || Date.now() < reading.quietUntil) return;
+  const r = $("reader");
+  const atEnd = body.getBoundingClientRect().bottom <= r.getBoundingClientRect().bottom + 4;
+  if (!atEnd) { reading.above = true; sv.pos = articlePos(); saveSoon(); return; }
+  if (reading.above) { // scrolled down to the end: done with it
+    delete state.saved[id];
+    save(); showSaveButton();
+    toast("Finished. Removed from Saved.");
   }
 }
 
@@ -673,11 +739,13 @@ function closeReader() {
       h.secs = Math.max(h.secs || 0, Math.round((Date.now() - reading.start) / 1000));
       save(); invalidate();
     }
+    if (state.saved[reading.id] && $("reader-body").querySelector(".rbody")) { state.saved[reading.id].pos = articlePos(); save(); }
     reading = null;
   }
   $("reader").classList.remove("open");
   $("reader").dataset.id = "";
   document.body.classList.remove("reading");
+  render();
 }
 $("reader-back").onclick = () => history.state?.reader ? history.back() : closeReader();
 addEventListener("popstate", () => { if ($("reader").classList.contains("open")) closeReader(); });
@@ -686,6 +754,7 @@ $("reader").addEventListener("scroll", () => {
   const depth = max > 0 ? Math.min(1, r.scrollTop / max) : 0;
   $("reader-progress").style.width = 100 * depth + "%";
   if (reading && $("reader-body").querySelector(".rbody")) reading.depth = Math.max(reading.depth, depth);
+  trackSaved();
 }, { passive: true });
 $("reader").addEventListener("click", (e) => {
   const b = e.target.closest("[data-rvote]");
@@ -779,7 +848,7 @@ $("reader-toggle").onclick = () => { state.reader = state.reader === false; save
 $("close-settings").onclick = () => $("settings").close();
 $("reset-read").onclick = () => { state.read = {}; save(); render(); toast("Read items are back in the list."); };
 $("export").onclick = async () => {
-  const blob = new Blob([JSON.stringify({ votes: state.votes, muted: state.muted, hist: state.hist }, null, 1)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify({ votes: state.votes, muted: state.muted, hist: state.hist, saved: state.saved }, null, 1)], { type: "application/json" });
   const file = new File([blob], `feed-likes-${new Date().toISOString().slice(0, 10)}.json`, { type: "application/json" });
   if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file] }); return; } catch {} }
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name; a.click();
@@ -789,6 +858,7 @@ $("import").onchange = async (e) => {
     const s = JSON.parse(await e.target.files[0].text());
     state.votes = { ...state.votes, ...(s.votes || {}) };
     state.hist = { ...(s.hist || {}), ...state.hist };
+    state.saved = { ...(s.saved || {}), ...state.saved };
     invalidate();
     state.muted = [...new Set([...state.muted, ...(s.muted || [])])];
     save(); renderSettings(); render(); toast("Likes imported.");
